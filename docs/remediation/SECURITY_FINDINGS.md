@@ -82,12 +82,18 @@ penetration-test report — independent testing is still required (spec §26.5, 
   across 380 routes; `SELECT *` and dynamic fragments need auditing (spec §5.2).
 - **Fix**: Phase §4/§5 — repository layer, explicit columns, statement timeouts; SQLi tests §26.5.
 
-### SEC-009 — CORS / content-type / headers need verification against strict policy
-- **Where**: `flask-cors` CORS, `validate_content_type` before_request (2395), `after_request`
-  header setter (2080) with a CSP referencing `cdn.jsdelivr.net` and inline usage.
-- **Impact**: CSP likely relies on `unsafe-inline` (inline JS/CSS present); CORS allowlist must be
-  confirmed to exclude wildcard-with-credentials.
-- **Fix**: Phase §8.2 / §9 — strict CSP without unsafe-inline (refactor inline), CORS allowlist.
+### SEC-009 — CORS / content-type / headers need verification against strict policy — 🟡 PARTIAL (2026-07-19)
+- **Where**: `flask-cors` CORS, `validate_content_type` before_request, `add_security_headers`
+  after_request.
+- **Done (§9)**: baseline headers already present (X-Frame-Options DENY, nosniff, HSTS prod,
+  Referrer-Policy, Permissions-Policy, CSP prod with `frame-ancestors 'none'`). Added
+  **Cross-Origin-Opener-Policy: same-origin**. Header presence tests added
+  (`tests/backend/test_security_headers.py`).
+- **Still open**: (1) **strict CSP without `unsafe-inline`** — needs refactor of large inline
+  JS/CSS in `templates/index.html` to nonces/external files (larger workstream); (2) **CORP** —
+  intentionally deferred: blanket `same-origin` risks breaking the cross-origin Capacitor mobile
+  client; apply per response-type after verifying mobile request modes; (3) **CORS allowlist**
+  audit (confirm no wildcard-with-credentials / reflected origins) — §8.2.
 
 ## Notes / positive findings (preserve)
 - A startup guard already rejects short `SECRET_KEY` (<32 chars) — keep/extend for prod fail-closed.

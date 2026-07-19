@@ -2118,7 +2118,20 @@ def add_security_headers(response):
     # Permissions policy (disable unnecessary features)
     response.headers['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=(), payment=(), usb=()'
 
+    # Cross-Origin-Opener-Policy: isolate this browsing context from cross-origin windows
+    # (mitigates cross-origin leaks / XS-Leaks). Safe for the web app and does not affect the
+    # mobile client's API fetches.
+    response.headers['Cross-Origin-Opener-Policy'] = 'same-origin'
+
+    # NOTE (spec §9): Cross-Origin-Resource-Policy is intentionally NOT set to 'same-origin' here.
+    # The Capacitor mobile app loads a bundled origin and fetches this API cross-origin; a blanket
+    # 'same-origin' CORP risks breaking the mobile client. CORP must be applied per response-type
+    # after verifying the mobile app's request modes — tracked in UX-/SEC- headers follow-up.
+
     # Content Security Policy (comprehensive - Phase 2C)
+    # NOTE (spec §9): script-src/style-src still allow 'unsafe-inline'. Removing it requires
+    # refactoring the large inline JS/CSS in templates/index.html to nonces/external files — a
+    # separate, larger workstream (SEC-009). Tracked; not done here.
     if not DEBUG:
         response.headers['Content-Security-Policy'] = (
             "default-src 'self'; "

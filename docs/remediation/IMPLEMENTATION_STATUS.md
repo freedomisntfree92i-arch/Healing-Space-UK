@@ -7,9 +7,15 @@
 - **Branch**: `security/nhs-grade-remediation` — pushed to `fork` remote
   (`freedomisntfree92i-arch/Healing-Space-UK`; `origin`=shadowWolf88 upstream, not pushable).
 - **Latest commit**: PRIV-001 training-export disable (SEC-001=`0136d08`, Phase Zero=`c08e727`).
-- **Current phase**: **PRIV-001 COMPLETE. Awaiting approval for next section.**
+- **Current phase**: **§9 security headers (partial) COMPLETE. Continuing per "carry on".**
 - **Workflow**: commit AND push after every completed section.
 - **Last updated**: 2026-07-19
+
+## §9 security headers (partial) — done 2026-07-19
+- Added `Cross-Origin-Opener-Policy: same-origin`; header presence tests
+  (`tests/backend/test_security_headers.py`, 5). Suite: **827 passed / 129 / 71 / 17** — no regression.
+- Deferred (documented in SEC-009): strict CSP without unsafe-inline (inline-JS refactor), CORP
+  (mobile cross-origin risk), CORS allowlist audit.
 
 ## PRIV-001 training-export disabled (§15.7) — done 2026-07-19
 - `TRAINING_DATA_ENABLED` flag (default off) gates `/api/training/export` (403) AND the
