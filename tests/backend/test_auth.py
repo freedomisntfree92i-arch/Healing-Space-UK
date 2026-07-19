@@ -720,12 +720,19 @@ class TestCSRFToken:
         set_cookie = resp.headers.get('Set-Cookie', '')
         assert 'csrf_token' in set_cookie
 
-    def test_csrf_token_unique_per_request(self, client):
-        """Each call to /api/csrf-token should return a different token."""
-        resp1 = client.get("/api/csrf-token")
-        resp2 = client.get("/api/csrf-token")
-        t1 = resp1.get_json()["csrf_token"]
-        t2 = resp2.get_json()["csrf_token"]
+    def test_csrf_token_stable_within_session(self, client):
+        """SEC-001: the token is now bound to the session and stable across calls within
+        the same session (not regenerated per request, which would break concurrency —
+        spec §8.1). Repeated GETs on one session return the same token."""
+        t1 = client.get("/api/csrf-token").get_json()["csrf_token"]
+        t2 = client.get("/api/csrf-token").get_json()["csrf_token"]
+        assert t1 == t2
+
+    def test_csrf_token_unique_per_session(self, client):
+        """Different sessions must receive different tokens."""
+        app = client.application
+        t1 = app.test_client().get("/api/csrf-token").get_json()["csrf_token"]
+        t2 = app.test_client().get("/api/csrf-token").get_json()["csrf_token"]
         assert t1 != t2
 
     def test_csrf_protection_class_generate(self, client):

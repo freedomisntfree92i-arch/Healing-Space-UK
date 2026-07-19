@@ -56,9 +56,10 @@ async function callClinicianAPI(endpoint, method = 'GET', body = null) {
 async function getCSRFToken() {
     // Token should be available from main app, or fetch fresh
     try {
-        const response = await fetch('/api/csrf-token');
+        const response = await fetch('/api/csrf-token', { credentials: 'include' });
         const data = await response.json();
-        return data.token || '';
+        // Endpoint returns the session-bound token under 'csrf_token' (and 'token' alias).
+        return data.csrf_token || data.token || '';
     } catch (e) {
         console.warn('Could not fetch CSRF token');
         return '';

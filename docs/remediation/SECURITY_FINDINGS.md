@@ -7,8 +7,17 @@ penetration-test report — independent testing is still required (spec §26.5, 
 
 ## CRITICAL
 
-### SEC-001 — CSRF protection is effectively decorative (not session-bound)
-- **Where**: `api.py` `validate_csrf_token()` (~line 2379) + `csrf_protect()` before_request (2414).
+### SEC-001 — CSRF protection is effectively decorative (not session-bound) — ✅ FIXED (2026-07-19)
+- **Status**: FIXED. `validate_csrf_token()` now does a constant-time compare against a
+  session-bound token (`stdlib_secrets.compare_digest`); `generate_csrf_token()`/`/api/csrf-token`
+  store one stable token per session; the blanket 64-char-alnum acceptance is removed; a startup
+  guard refuses `TESTING=1` in production/non-DEBUG. `clinician.js` token-field bug fixed; response
+  returns `csrf_token`+`token`. Tests: `tests/backend/test_csrf_protection.py` (7) +
+  `test_auth.py::TestCSRFToken` updated. **Remaining (defer to §8):** a SECOND, class-based CSRF
+  system (`CSRFProtection.generate_csrf_token(username)` → `csrf_token_<username>`) still layers on
+  the 115 `@CSRFProtection.require_csrf` routes — consolidate the two into one mechanism; also review
+  the CSRF-exempt messaging endpoints.
+- **Where**: `api.py` `validate_csrf_token()` + `csrf_protect()` before_request.
 - **Detail**: The global validator returns `True` for **any** 64-char alphanumeric string and is
   fully bypassed when `TESTING=1`. Tokens are never stored server-side or bound to the session; the
   code comment concedes "In production, you'd want to validate against stored session tokens."

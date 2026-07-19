@@ -306,6 +306,19 @@ if len(SECRET_KEY) < 32:
         f"Generate with: python3 -c \"import secrets; print(secrets.token_hex(32))\""
     )
 
+# SEC-001: TESTING mode disables CSRF validation, so it must NEVER be enabled outside a
+# local/dev test run. Refuse to start if TESTING is set in a production-like or non-DEBUG
+# environment. (Broader fail-closed production config validation lands with the app factory, §4.2.)
+_PRODUCTION_ENV = (
+    os.getenv('FLASK_ENV', '').lower() == 'production'
+    or os.getenv('RAILWAY_ENVIRONMENT', '').lower() == 'production'
+)
+if os.getenv('TESTING') == '1' and (_PRODUCTION_ENV or not DEBUG):
+    raise ValueError(
+        "TESTING=1 is not permitted in a production or non-DEBUG environment: it disables "
+        "CSRF validation. Unset TESTING for any real deployment."
+    )
+
 app.config['SECRET_KEY'] = SECRET_KEY
 app.config['SESSION_COOKIE_SECURE'] = not os.getenv('DEBUG', '').lower() in ('1', 'true', 'yes')  # HTTPS in production
 app.config['SESSION_COOKIE_HTTPONLY'] = True  # Prevent JavaScript access
@@ -2373,22 +2386,33 @@ CSRF_EXEMPT_ENDPOINTS = {
 }
 
 def generate_csrf_token():
-    """Generate a CSRF token for the current session"""
-    if 'csrf_token' not in g:
-        g.csrf_token = stdlib_secrets.token_hex(32)
-    return g.csrf_token
+    """Return the current session's CSRF token, generating one once per session.
+
+    SEC-001: the token is bound to the server-side session so it can be validated
+    against later (see validate_csrf_token). A single stable per-session token is used
+    (not one-per-request) so multiple tabs / concurrent requests do not break.
+    """
+    if not session.get('csrf_token'):
+        session['csrf_token'] = stdlib_secrets.token_hex(32)
+    return session['csrf_token']
 
 def validate_csrf_token(token):
-    """Validate CSRF token from request"""
-    # In testing mode, skip CSRF validation
+    """Validate a submitted CSRF token against the session-bound token (SEC-001).
+
+    The previous implementation accepted ANY 64-char alphanumeric string and was not
+    bound to the session — effectively no CSRF protection. This now performs a
+    constant-time comparison against the token stored in the server-side session.
+    """
+    # Test-environment affordance ONLY. Production is prevented from enabling TESTING
+    # at startup (see the TESTING/production guard in the config block), so this branch
+    # cannot be reached in a production deployment.
     if os.getenv('TESTING') == '1':
         return True
-    
-    if not token:
+
+    expected = session.get('csrf_token')
+    if not token or not expected:
         return False
-    # For API use, we validate the token format and presence
-    # In production, you'd want to validate against stored session tokens
-    return len(token) == 64 and token.isalnum()
+    return stdlib_secrets.compare_digest(str(token), str(expected))
 
 # ================== PHASE 2C: CONTENT-TYPE VALIDATION ==================
 
@@ -2467,10 +2491,15 @@ def check_session_inactivity():
 
 @app.route('/api/csrf-token', methods=['GET'])
 def get_csrf_token():
-    """Get a CSRF token for subsequent requests"""
-    token = stdlib_secrets.token_hex(32)
-    response = jsonify({'csrf_token': token})
-    # Also set as cookie for double-submit pattern
+    """Return the session-bound CSRF token for subsequent requests (SEC-001).
+
+    Stores the token in the server-side session (via generate_csrf_token) so it can be
+    validated on later state-changing requests. Returns it under both 'csrf_token' and
+    'token' keys for frontend compatibility (clinician.js historically read 'token').
+    """
+    token = generate_csrf_token()  # generates once per session, then stable
+    response = jsonify({'csrf_token': token, 'token': token})
+    # Also expose as a non-HttpOnly cookie for the double-submit pattern (defence in depth).
     response.set_cookie('csrf_token', token, httponly=False, samesite='Strict', secure=not DEBUG)
     return response
 

@@ -5,9 +5,17 @@
 
 ## Snapshot
 - **Branch**: `security/nhs-grade-remediation` (off `main`)
-- **Latest commit**: Phase Zero containment (see git log; Phase 0 deliverables = `d6eafa9`)
-- **Current phase**: **Phase Zero (§3) COMPLETE — awaiting approval to start Foundations (§4+)**
+- **Latest commit**: SEC-001 CSRF fix (Phase Zero = `c08e727`; Phase 0 = `d6eafa9`)
+- **Current phase**: **Foundations — SEC-001 (CSRF §8) COMPLETE. Awaiting approval for next.**
 - **Last updated**: 2026-07-19
+
+## SEC-001 CSRF fix (§8) — done 2026-07-19
+- Session-bound, constant-time CSRF validation; stable per-session token; removed the
+  "any 64-char alnum passes" bypass; startup guard refuses TESTING in prod/non-DEBUG.
+- Fixed `clinician.js` token field; `/api/csrf-token` returns `csrf_token`+`token`.
+- Tests: `tests/backend/test_csrf_protection.py` (7) + updated `test_auth.py::TestCSRFToken`.
+  **818 passed / 129 failed / 71 errors / 17 skipped** — no regression (+8 new).
+- Deferred to §8 consolidation: the 2nd class-based CSRF system + CSRF-exempt messaging endpoints.
 
 ## 🔴 URGENT USER ACTION OUTSTANDING
 A real Railway Postgres password was found in git history (`zkzFIlnbBIFNTomTawKPymiZwhWpvYfG`).
