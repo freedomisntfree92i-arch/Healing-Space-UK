@@ -9,6 +9,16 @@
 
 set -e
 
+# PRIV-001 (spec §15.7): AI-training data export is disabled pending information-governance
+# approval. This installer refuses to set up an automated export job unless an operator has
+# explicitly opted in AND a governed workflow exists. Do not remove this guard casually.
+if [ "${TRAINING_DATA_ENABLED,,}" != "1" ] && [ "${TRAINING_DATA_ENABLED,,}" != "true" ]; then
+    echo "REFUSED: AI-training data export is disabled by default (PRIV-001, spec §15.7)."
+    echo "It must not be scheduled until a governed export workflow exists."
+    echo "See docs/remediation/PRIVACY_FINDINGS.md. Aborting."
+    exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 EXPORT_SCRIPT="$SCRIPT_DIR/export_training_data.py"
 LOG_DIR="$SCRIPT_DIR/logs"

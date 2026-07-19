@@ -4,10 +4,20 @@
 > re-running the whole audit (spec §31).
 
 ## Snapshot
-- **Branch**: `security/nhs-grade-remediation` (off `main`)
-- **Latest commit**: SEC-001 CSRF fix (Phase Zero = `c08e727`; Phase 0 = `d6eafa9`)
-- **Current phase**: **Foundations — SEC-001 (CSRF §8) COMPLETE. Awaiting approval for next.**
+- **Branch**: `security/nhs-grade-remediation` — pushed to `fork` remote
+  (`freedomisntfree92i-arch/Healing-Space-UK`; `origin`=shadowWolf88 upstream, not pushable).
+- **Latest commit**: PRIV-001 training-export disable (SEC-001=`0136d08`, Phase Zero=`c08e727`).
+- **Current phase**: **PRIV-001 COMPLETE. Awaiting approval for next section.**
+- **Workflow**: commit AND push after every completed section.
 - **Last updated**: 2026-07-19
+
+## PRIV-001 training-export disabled (§15.7) — done 2026-07-19
+- `TRAINING_DATA_ENABLED` flag (default off) gates `/api/training/export` (403) AND the
+  auto-collection of therapy chat into the training corpus (api.py ~9743). Cron installer refuses.
+- Tests: `tests/backend/test_training_export_disabled.py` (4). Suite: **822 passed / 129 / 71 / 17** —
+  no regression.
+- REMAINING for full §15.7: the export endpoint trusts `username` from the body (authz hole to close),
+  plus pseudonymisation/de-id/manifest/withdrawal before it may ever be enabled.
 
 ## SEC-001 CSRF fix (§8) — done 2026-07-19
 - Session-bound, constant-time CSRF validation; stable per-session token; removed the

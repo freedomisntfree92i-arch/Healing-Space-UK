@@ -4,12 +4,17 @@ _Engineering observations (2026-07-19). A DPIA and lawful-basis register (Phase 
 Information Governance ownership — see EXTERNAL_ASSURANCE_REQUIRED. No "GDPR compliant" claim is
 supportable yet (see CLAIMS_REGISTER)._
 
-## PRIV-001 — AI training-data export pipeline is active and not governed (CRITICAL)
-`export_training_data.py`, `training_data_manager.py` ("GDPR-compliant training data"),
-`setup_training_export_cron.sh`, route `/api/training/export`. Spec §15.7 requires training exports
-**disabled by default** until a governance workflow exists (approval, pseudonymisation, free-text
-de-identification, disclosure-risk assessment, manifest, withdrawal). "Hashing usernames is not
-anonymisation." **Action (Phase §15.7):** disable by default behind a governance flag.
+## PRIV-001 — AI training-data export pipeline is active and not governed — ✅ DISABLED BY DEFAULT (2026-07-19)
+**Status:** contained. Added `TRAINING_DATA_ENABLED` flag (default **off**) gating BOTH live paths:
+(1) `/api/training/export` now returns 403 `TRAINING_EXPORT_DISABLED` unless explicitly enabled;
+(2) the auto-collection of therapy sessions into the training corpus during normal chat
+(`api.py` ~line 9743) now requires the flag too, so clinical chat no longer auto-flows into training.
+`setup_training_export_cron.sh` refuses to install unless the flag is set. (`export_training_data.py`
+was already a hard-disabled deprecated stub.) Tests: `tests/backend/test_training_export_disabled.py`.
+**Still REQUIRED before enabling (full §15.7 governed workflow):** authenticated/authorised requester
+(the endpoint currently trusts a `username` in the body — an authz hole to close), approved purpose,
+pseudonymisation, free-text de-identification, disclosure-risk assessment, cohort threshold, immutable
+manifest, withdrawal handling. "Hashing usernames is not anonymisation."
 
 ## PRIV-002 — Clinical data can flow into AI without purpose-limitation controls (HIGH)
 Groq receives patient message text and risk context. No engineering control found preventing

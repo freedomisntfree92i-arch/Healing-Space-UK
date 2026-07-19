@@ -32,6 +32,12 @@ except ImportError:
 
 # ===== TIER 1.6: Configure Structured Logging =====
 DEBUG = os.getenv('DEBUG', '').lower() in ('1', 'true', 'yes')
+
+# PRIV-001 (spec §15.7): AI-training data collection/export is DISABLED BY DEFAULT.
+# Clinical data must not flow into an AI-training corpus until a governed workflow exists
+# (approved purpose, pseudonymisation, free-text de-identification, disclosure-risk assessment,
+# manifest, withdrawal handling). Only an explicit operator opt-in enables it.
+TRAINING_DATA_ENABLED = os.getenv('TRAINING_DATA_ENABLED', '').lower() in ('1', 'true', 'yes')
 logging.basicConfig(
     level=logging.DEBUG if DEBUG else logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -9733,9 +9739,10 @@ def therapy_chat():
             except Exception as bg_err:
                 print(f"Background risk calc error: {bg_err}")
 
-        # Collect for training if user has consented
+        # Collect for training only if training is governed-enabled AND the user consented.
+        # PRIV-001 (§15.7): disabled by default so clinical chat does not auto-flow into training.
         try:
-            if training_manager.check_user_consent(username):
+            if TRAINING_DATA_ENABLED and training_manager.check_user_consent(username):
                 # Get user's mood context
                 conn = get_db_connection()
                 cur = get_wrapped_cursor(conn)
@@ -14751,14 +14758,29 @@ def get_training_consent_status():
 
 @app.route('/api/training/export', methods=['POST'])
 def export_training_data():
-    """Export user's anonymized data to training database (if consented)"""
+    """Export user's anonymized data to training database (if consented).
+
+    PRIV-001 (§15.7): disabled by default. Returns 403 unless TRAINING_DATA_ENABLED is
+    explicitly set by an operator. Full governance (approval, pseudonymisation, free-text
+    de-identification, disclosure-risk assessment, manifest, withdrawal) is required before
+    this may be enabled — see docs/remediation/PRIVACY_FINDINGS.md PRIV-001.
+    """
     try:
+        if not TRAINING_DATA_ENABLED:
+            log_event('system', 'privacy', 'training_export_blocked',
+                      'training export attempted while disabled (PRIV-001)')
+            return jsonify({
+                'error': 'AI-training data export is disabled pending information-governance '
+                         'approval. It is not available.',
+                'code': 'TRAINING_EXPORT_DISABLED'
+            }), 403
+
         data = request.json
         username = data.get('username')
-        
+
         if not username:
             return jsonify({'error': 'Username required'}), 400
-        
+
         # Check consent
         if not training_manager.check_user_consent(username):
             return jsonify({
