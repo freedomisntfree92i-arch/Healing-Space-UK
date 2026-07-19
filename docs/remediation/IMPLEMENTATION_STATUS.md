@@ -5,9 +5,26 @@
 
 ## Snapshot
 - **Branch**: `security/nhs-grade-remediation` (off `main`)
-- **Latest commit**: _(Phase 0 deliverables not yet committed — pending user approval)_
-- **Current phase**: Phase 0 (Baseline & deliverables) — **complete, awaiting approval to start Phase Zero §3**
+- **Latest commit**: Phase Zero containment (see git log; Phase 0 deliverables = `d6eafa9`)
+- **Current phase**: **Phase Zero (§3) COMPLETE — awaiting approval to start Foundations (§4+)**
 - **Last updated**: 2026-07-19
+
+## 🔴 URGENT USER ACTION OUTSTANDING
+A real Railway Postgres password was found in git history (`zkzFIlnbBIFNTomTawKPymiZwhWpvYfG`).
+**Rotate it in Railway now** (see `docs/security/SECRET_ROTATION_RUNBOOK.md`). History purge is
+planned but the credential stays valid until rotated. Not fixable by code.
+
+## Phase Zero results (§3) — done 2026-07-19
+- Removed 4 destructive HTTP routes from `api.py` (`/api/admin/wipe`, `/api/admin/wipe-database`,
+  `/api/admin/reset-users`, `/api/debug/analytics/<clinician>`); replaced DB-wipe/reset capability
+  with offline `scripts/admin_cli.py` (prod-refusing, typed confirmation). SEC-002 closed.
+- Untracked 1099 junk files (node_modules, __pycache__/pyc, backups/, cookies.txt, flask.pid,
+  speech.mp3, locks, apk/deb) — kept on disk; extended `.gitignore`; added `.gitattributes`.
+- Added `.github/CODEOWNERS`, `dependabot.yml`, `SECURITY.md`; `docs/security/SECRET_ROTATION_RUNBOOK.md`
+  + `REPOSITORY_EXPOSURE_RESPONSE.md`.
+- Verified git history for secrets (SEC-005 confirmed — see URGENT above). **No history rewrite done.**
+- Added `tests/backend/test_destructive_routes_removed.py` (regression guard).
+- Tests: **810 passed / 129 failed / 71 errors / 17 skipped** — no regression vs 805 baseline (+5 new).
 
 ## Test baseline (do not regress below this)
 - Env: isolated venv at `scratchpad/venv` (runtime + pytest); local Postgres 16 present but the
@@ -35,18 +52,10 @@
 - Fork/remote note: local remote is `shadowWolf88/Healing-Space-UK`; spec header named
   `freedomisntfree92i-arch`. Confirm canonical remote before any push.
 
-## Exact next task (Phase Zero — §3, on approval)
-1. Repo hygiene: fix `.gitignore`/`.gitattributes`; `git rm --cached` the tracked junk
-   (`node_modules/`, `__pycache__`/`.pyc`, `cookies.txt`, `flask.pid`, `speech.mp3`, `backups/`,
-   `.~lock*`, `_archive/*.deb`/`*.apk`). Preserve files on disk; only untrack.
-2. Add `.github/CODEOWNERS`, `dependabot.yml`, `SECURITY.md`;
-   `docs/security/SECRET_ROTATION_RUNBOOK.md`, `REPOSITORY_EXPOSURE_RESPONSE.md`.
-3. Verify git history for secrets (git log -p over sensitive paths / trufflehog-style scan);
-   produce the exact rotation checklist. **Do not rewrite history yet** — report findings first.
-4. **Neutralise destructive endpoints** SEC-002: `/api/admin/wipe`, `/api/admin/wipe-database`,
-   `/api/admin/reset-users`, `/api/debug/*` → remove routes; relocate any real need to an offline
-   CLI guarded by env + confirmation. Add tests asserting the routes return 404/gone.
-5. Re-run the baseline suite; confirm no regression vs 805 passing.
+## Exact next task (Foundations, on approval — recommend starting §4 architecture or §8 CSRF)
+Recommended first Foundations target: **SEC-001 (broken CSRF, §8)** — highest-severity live code
+issue now that SEC-002 is closed. Alternatively begin the §4 modular split of `api.py`. Also early:
+**PRIV-001** disable AI-training export by default (§15.7). Confirm sequencing with user.
 
 ## Known critical/high items being tracked
 SEC-001 (broken CSRF), SEC-002 (HTTP DB wipe), SEC-003 (developer superuser), SEC-004 (in-memory

@@ -1,0 +1,22 @@
+# Code owners for Healing Space UK
+# NOTE: replace @OWNER with the real GitHub handle(s) of the accountable maintainer(s).
+# Security-, clinical-safety- and privacy-sensitive paths should require review before merge.
+
+# Default owner for everything
+*                                   @OWNER
+
+# Core application
+/api.py                             @OWNER
+/scripts/                           @OWNER
+
+# Security-sensitive
+/scripts/admin_cli.py               @OWNER
+/.github/                           @OWNER
+/docs/security/                     @OWNER
+/docs/remediation/                  @OWNER
+
+# Clinical safety & privacy — should also involve the clinical safety / IG owners
+/safety_monitor.py                  @OWNER
+/c_ssrs_assessment.py               @OWNER
+/docs/clinical/                     @OWNER
+/docs/privacy/                      @OWNER

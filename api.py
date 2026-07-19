@@ -6824,19 +6824,7 @@ def login_page():
     """Serve login/app page"""
     return render_template('index.html')
 
-@app.route('/api/admin/wipe')
-def admin_wipe_page():
-    """Serve admin database wipe page - PROTECTED (developer role only)"""
-    username = get_authenticated_username()
-    if not username:
-        return redirect('/login')
-    conn = get_db_connection()
-    cur = get_wrapped_cursor(conn)
-    user_role = cur.execute("SELECT role FROM users WHERE username = %s", (username,)).fetchone()
-    conn.close()
-    if not user_role or user_role[0] != 'developer':
-        return redirect('/')
-    return render_template('admin-wipe.html')
+# [REMOVED Phase Zero SEC-002] GET /api/admin/wipe — DB-wipe UI removed; use scripts/admin_cli.py
 
 @app.route('/api/developer/dashboard')
 def developer_dashboard():
@@ -6860,94 +6848,7 @@ def developer_dashboard():
 
     return render_template('developer-dashboard.html')
 
-@app.route('/api/debug/analytics/<clinician>', methods=['GET'])
-def debug_analytics(clinician):
-    """Phase 1C: Debug endpoint - PROTECTED (developer role only)"""
-    try:
-        # Phase 1C: Only allow developers to access debug endpoints
-        username = get_authenticated_username()
-        if not username:
-            return jsonify({'error': 'Authentication required'}), 401
-        
-        conn = get_db_connection()
-        cur = get_wrapped_cursor(conn)
-        
-        # Verify user is a developer
-        user_role = cur.execute(
-            "SELECT role FROM users WHERE username = %s",
-            (username,)
-        ).fetchone()
-        
-        if not user_role or user_role[0] != 'developer':
-            conn.close()
-            return jsonify({'error': 'Developer role required for debug endpoints'}), 403
-        
-        debug_info = {
-            'clinician': clinician,
-            'timestamp': datetime.now().isoformat()
-        }
-        
-        # Check if clinician exists
-        clinician_exists = cur.execute(
-            "SELECT username, role FROM users WHERE username = %s",
-            (clinician,)
-        ).fetchone()
-        debug_info['clinician_exists'] = bool(clinician_exists)
-        if clinician_exists:
-            debug_info['clinician_role'] = clinician_exists[1]
-        
-        # Get approved patients
-        patients = cur.execute("""
-            SELECT u.username, u.role FROM users u
-            JOIN patient_approvals pa ON u.username = pa.patient_username
-            WHERE pa.clinician_username= %s AND pa.status='approved'
-        """, (clinician,)).fetchall()
-        
-        debug_info['total_patients'] = len(patients)
-        debug_info['patients'] = [{'username': p[0], 'role': p[1]} for p in patients]
-        
-        # Get all approvals for this clinician
-        all_approvals = cur.execute(
-            "SELECT patient_username, status, request_date FROM patient_approvals WHERE clinician_username = %s",
-            (clinician,)
-        ).fetchall()
-        debug_info['all_approvals'] = [
-            {'patient': a[0], 'status': a[1], 'date': a[2]} for a in all_approvals
-        ]
-        
-        # If we have patients, get activity
-        if patients:
-            patient_usernames = [p[0] for p in patients]
-            placeholders = ','.join(['?'] * len(patient_usernames))
-            
-            # Active patients
-            active = cur.execute(f"""
-                SELECT COUNT(DISTINCT username) FROM (
-                    SELECT username FROM mood_logs 
-                    WHERE username IN ({placeholders}) 
-                    AND entrestamp > CURRENT_TIMESTAMP - INTERVAL '7 days'
-                    UNION
-                    SELECT sender as username FROM chat_history 
-                    WHERE sender IN ({placeholders}) 
-                    AND timestamp > CURRENT_TIMESTAMP - INTERVAL '7 days'
-                )
-            """, patient_usernames + patient_usernames).fetchone()[0]
-            debug_info['active_patients'] = active
-            
-            # High risk
-            high_risk = cur.execute(f"""
-                SELECT COUNT(DISTINCT username) FROM alerts 
-                WHERE username IN ({placeholders}) 
-                AND (status IS NULL OR status != 'resolved')
-            """, patient_usernames).fetchone()[0]
-            debug_info['high_risk_count'] = high_risk
-        
-        conn.close()
-        
-        return jsonify(debug_info), 200
-        
-    except Exception as e:
-        return handle_exception(e, 'debug_analytics')
+# [REMOVED Phase Zero SEC-002] GET /api/debug/analytics — debug endpoint removed
 
 @app.route('/diagnostic')
 def diagnostic():
@@ -6963,72 +6864,7 @@ def health_check():
     except Exception as e:
         return jsonify({'status': 'error', 'error': str(e)}), 500
 
-@CSRFProtection.require_csrf
-@app.route('/api/admin/wipe-database', methods=['POST'])
-def admin_wipe_database():
-    """ADMIN ONLY: Wipe all user data from database - requires secret key"""
-    try:
-        data = request.json
-        admin_key = data.get('admin_key')
-        
-        # Check admin key (MUST be set via environment variable - no default)
-        required_key = os.getenv('ADMIN_WIPE_KEY')
-
-        if not required_key:
-            return jsonify({'error': 'Admin wipe key not configured on server'}), 500
-
-        if not admin_key or admin_key != required_key:
-            return jsonify({'error': 'Unauthorized - invalid admin key'}), 403
-        
-        conn = get_db_connection()
-        cur = get_wrapped_cursor(conn)
-        
-        print("🗑️  ADMIN: Wiping all user data from database...")
-        
-        tables_to_clear = [
-            'users',
-            'patient_approvals',
-            'chat_history',
-            'chat_sessions',
-            'mood_logs',
-            'alerts',
-            'notifications',
-            'clinical_scales',
-            'clinician_notes',
-            'cbt_records',
-            'ai_memory',
-            'appointments',
-            'audit_logs',
-            'verification_codes'
-        ]
-        
-        results = {}
-        for table in tables_to_clear:
-            try:
-                cur.execute(f"DELETE FROM {table}")
-                count = cur.rowcount
-                results[table] = f"{count} rows deleted"
-                print(f"  ✓ Cleared {table}: {count} rows")
-            except Exception as e:
-                results[table] = f"Error: {str(e)}"
-                print(f"  ⚠️  {table}: {e}")
-        
-        conn.commit()
-        conn.close()
-        
-        log_event('ADMIN', 'api', 'database_wiped', 'All user data cleared')
-        
-        print("✅ ADMIN: Database wipe complete")
-        
-        return jsonify({
-            'success': True,
-            'message': 'Database wiped successfully',
-            'results': results
-        }), 200
-        
-    except Exception as e:
-        print(f"❌ ADMIN: Database wipe error: {e}")
-        return handle_exception(e, request.endpoint or 'unknown')
+# [REMOVED Phase Zero SEC-002] POST /api/admin/wipe-database — destructive op moved to scripts/admin_cli.py
 
 @CSRFProtection.require_csrf
 @check_rate_limit('send_verification')
@@ -14746,89 +14582,7 @@ def export_patient_summary():
         return handle_exception(e, request.endpoint or 'unknown')
 
 # ===== ADMIN / TESTING ENDPOINTS =====
-@app.route('/api/admin/reset-users', methods=['POST'])
-def reset_all_users():
-    """DANGER: Delete all users, approvals, and notifications (for testing only)"""
-    try:
-        # SECURITY: Block this endpoint in production unless explicitly enabled
-        if os.environ.get('FLASK_ENV') == 'production' and not os.environ.get('ALLOW_ADMIN_RESET'):
-            return jsonify({'error': 'This endpoint is disabled in production'}), 403
-
-        data = request.json
-        confirm = data.get('confirm')
-        admin_username = data.get('admin_username')
-        admin_password = data.get('admin_password')
-
-        # SECURITY: Require admin authentication
-        if not admin_username or not admin_password:
-            return jsonify({'error': 'Admin credentials required'}), 401
-
-        # Verify admin credentials and role
-        conn = get_db_connection()
-        cur = get_wrapped_cursor(conn)
-
-        admin = cur.execute(
-            "SELECT password, role FROM users WHERE username = %s",
-            (admin_username,)
-        ).fetchone()
-
-        if not admin:
-            conn.close()
-            return jsonify({'error': 'Invalid admin credentials'}), 401
-
-        # Verify password (using the same hashing as login)
-        from werkzeug.security import check_password_hash
-        if not check_password_hash(admin[0], admin_password):
-            conn.close()
-            return jsonify({'error': 'Invalid admin credentials'}), 401
-
-        # Verify admin role
-        if admin[1] != 'admin':
-            conn.close()
-            return jsonify({'error': 'Insufficient privileges: admin role required'}), 403
-
-        # Require explicit confirmation
-        if confirm != 'DELETE_ALL_USERS':
-            conn.close()
-            return jsonify({'error': 'Must provide confirm="DELETE_ALL_USERS" to proceed'}), 400
-
-        # Log the admin action BEFORE deleting
-        log_event(admin_username, 'admin', 'database_reset_initiated', 'Admin initiated full database reset')
-
-        # Delete all users and related data
-        cur.execute("DELETE FROM users")
-        cur.execute("DELETE FROM patient_approvals")
-        cur.execute("DELETE FROM notifications")
-        cur.execute("DELETE FROM sessions")
-        cur.execute("DELETE FROM chat_history")
-        cur.execute("DELETE FROM mood_logs")
-        cur.execute("DELETE FROM gratitude_logs")
-        cur.execute("DELETE FROM cbt_records")
-        cur.execute("DELETE FROM clinical_scales")
-        cur.execute("DELETE FROM safety_plans")
-        cur.execute("DELETE FROM ai_memory")
-        cur.execute("DELETE FROM community_posts")
-        cur.execute("DELETE FROM alerts")
-        
-        conn.commit()
-        
-        # Get counts to verify
-        user_count = cur.execute("SELECT COUNT(*) FROM users").fetchone()[0]
-        approval_count = cur.execute("SELECT COUNT(*) FROM patient_approvals").fetchone()[0]
-        
-        conn.close()
-
-        log_event(admin_username, 'admin', 'database_reset_completed', f'All users and data deleted. Users remaining: {user_count}')
-
-        return jsonify({
-            'success': True,
-            'message': 'All users and related data deleted',
-            'users_remaining': user_count,
-            'approvals_remaining': approval_count
-        }), 200
-
-    except Exception as e:
-        return handle_exception(e, request.endpoint or 'unknown')
+# [REMOVED Phase Zero SEC-002] POST /api/admin/reset-users — destructive op moved to scripts/admin_cli.py
 
 # === DAILY MOOD REMINDER ===
 @app.route('/api/mood/check-reminder', methods=['POST'])

@@ -1,0 +1,20 @@
+# Normalise line endings
+* text=auto eol=lf
+
+# Binary assets — never diff/merge as text
+*.png binary
+*.webp binary
+*.ico binary
+*.xcf binary
+*.mp3 binary
+*.wav binary
+*.apk binary
+*.deb binary
+*.jar binary
+*.zip binary
+*.gz binary
+*.pdf binary
+*.docx binary
+
+# Keep shell scripts LF
+*.sh text eol=lf

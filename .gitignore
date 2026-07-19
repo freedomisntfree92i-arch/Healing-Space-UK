@@ -77,3 +77,18 @@ node_modules/
 capacitor.config.json
 *.hxml
 
+# Phase Zero hygiene additions
+cookies.txt
+*.pid
+*.cookie
+.~lock.*#            # LibreOffice lock files
+*.apk
+*.deb
+*.xcf
+*.zip
+backups/            # local backups/snapshots must not be tracked
+DevExternalUseFolder/
+_archive/deprecated-files/
+# Runtime/generated audio kept explicit (already covered by *.mp3/*.wav above)
+speech.mp3
+
