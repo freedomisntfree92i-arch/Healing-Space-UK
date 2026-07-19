@@ -7,7 +7,16 @@
 - **Branch**: `security/nhs-grade-remediation` — pushed to `fork` remote
   (`freedomisntfree92i-arch/Healing-Space-UK`; `origin`=shadowWolf88 upstream, not pushable).
 - **Latest commit**: PRIV-001 training-export disable (SEC-001=`0136d08`, Phase Zero=`c08e727`).
-- **Current phase**: **CORS allowlist + DEBUG/prod guard COMPLETE.**
+- **Current phase**: **PRIV-004 log-redaction COMPLETE.**
+
+## PRIV-004 log redaction (§16.7) — done 2026-07-19
+- `log_event`→`audit_logs` DB table confirmed acceptable (metadata, not content). Fixed stdout
+  leaks: Groq error handlers logged `response.text` (can echo user content) → redacted to
+  status+length; `send_message` logged subject → logs `subject_len`. Suite 845/124/71 — no regression.
+- Tracked for later: log-redaction test harness (§26); `audit.py` DATABASE_URL-only + per-call
+  connection (§5.3).
+
+### (previous) CORS allowlist + DEBUG/prod guard COMPLETE.
 - **Workflow**: commit AND push after every completed section. **Work is on `main` of the user's
   fork** (freedomisntfree92i-arch) per user instruction — no feature branch.
 - **Last updated**: 2026-07-19

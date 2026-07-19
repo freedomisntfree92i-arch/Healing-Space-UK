@@ -25,10 +25,17 @@ clinical data flowing to training/analytics/debug (§16.3). `ai_monitoring_conse
 Groq (LLM) and edge-tts (Microsoft TTS) both transmit potentially health-related text externally.
 Must appear in DPIA + subprocessor register with region/retention (§16, THIRD_PARTY_REGISTER).
 
-## PRIV-004 — Logging may include sensitive content (HIGH — verify)
-`log_event(...)` is used widely (incl. security events with endpoint/IP). Must verify no full
-messages, assessment answers, safety-plan/safeguarding text, tokens, secrets or reset links reach
-logs (§16.7). Implement structured identifiers + redaction.
+## PRIV-004 — Logging may include sensitive content — 🟡 MOSTLY VERIFIED + leaks fixed (2026-07-19)
+**Findings after audit:** `log_event()` writes to the **`audit_logs` DB table** (controlled record),
+not stdout, and logs metadata not content — acceptable. The 185 call sites sampled log event
+types/IDs (e.g. "Chat message sent"), not message bodies. **Fixed real stdout leaks (§16.7):**
+- Groq content-filter / API error handlers logged `response.text[:300]`, which can echo the user's
+  flagged message content (api.py ~3285/3298 and dev-AI ~8352) → now log status + length only.
+- `send_message` logged the message **subject** (`subject[:50]`) → now logs `subject_len` only.
+**Still open / tracked:** systematic log-redaction test harness (§26); `audit.py` connects only via
+`DATABASE_URL` (silently no-ops under `DB_*`-only local dev) and opens a NEW connection per call
+(not pooled — §5.3 connection budget). No dedicated automated test added for the redactions (string
+changes verified by inspection + no-regression suite).
 
 ## PRIV-005 — No retention jobs / DSAR workflow (HIGH)
 No controlled retention scheduler or data-subject-request workflow found (§16.5/§16.6). Deletion

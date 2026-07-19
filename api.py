@@ -3282,7 +3282,9 @@ The user may be experiencing some difficulty. Please:
             if response.status_code == 400:
                 # Groq content filter hit — return a safe clinical fallback rather than crashing
                 error_detail = response.text[:300] if response.text else ""
-                print(f"Groq content filter (400) for user {self.username}: {error_detail}")
+                # PRIV-004 (§16.7): the Groq content-filter response can echo the user's flagged
+                # message text — never log the body. Log only status + length.
+                print(f"Groq content filter (400) for user {self.username} [response redacted, {len(error_detail)} chars]")
                 return (
                     "I want to make sure I'm supporting you in the best way I can. "
                     "What you're sharing sounds really important, and I want to give it the attention it deserves. "
@@ -3295,8 +3297,10 @@ The user may be experiencing some difficulty. Please:
 
             if response.status_code != 200:
                 error_detail = response.text[:200] if response.text else "No error detail"
-                print(f"Groq API error {response.status_code}: {error_detail}")
-                raise RuntimeError(f"Groq API error: {response.status_code} - {error_detail}")
+                # PRIV-004 (§16.7): do not log or propagate the Groq response body — it can echo
+                # user message content into stdout logs / error surfaces.
+                print(f"Groq API error {response.status_code} [response redacted, {len(error_detail)} chars]")
+                raise RuntimeError(f"Groq API error: {response.status_code}")
 
             result = response.json()
             if 'choices' not in result or len(result['choices']) == 0:
@@ -8349,7 +8353,8 @@ def developer_ai_chat():
             return jsonify({'response': ai_response, 'session_id': session_id}), 200
         else:
             error_detail = response.text[:200]
-            print(f"Dev AI Groq API error {response.status_code}: {error_detail}")
+            # PRIV-004 (§16.7): do not log the Groq response body (may echo user content).
+            print(f"Dev AI Groq API error {response.status_code} [response redacted, {len(error_detail)} chars]")
             conn.close()
             return jsonify({'error': f'AI API error: {response.status_code}'}), 500
 
@@ -18918,7 +18923,8 @@ def send_message():
             cur = get_wrapped_cursor(conn)
             service = MessageService(conn, cur, sender)
             
-            app_logger.info(f'[send_message] Sending from {sender} to {recipient}, subject: {subject[:50] if subject else "(none)"}')
+            # PRIV-004 (§16.7): log message metadata only, never subject/body content.
+            app_logger.info(f'[send_message] Sending from {sender} to {recipient}, subject_len: {len(subject) if subject else 0}')
             
             result = service.send_direct_message(
                 recipient=recipient,
