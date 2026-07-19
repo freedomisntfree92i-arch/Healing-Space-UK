@@ -7,9 +7,17 @@
 - **Branch**: `security/nhs-grade-remediation` — pushed to `fork` remote
   (`freedomisntfree92i-arch/Healing-Space-UK`; `origin`=shadowWolf88 upstream, not pushable).
 - **Latest commit**: PRIV-001 training-export disable (SEC-001=`0136d08`, Phase Zero=`c08e727`).
-- **Current phase**: **CSV formula-injection protection COMPLETE. Continuing per "carry on".**
-- **Workflow**: commit AND push after every completed section.
+- **Current phase**: **CORS allowlist + DEBUG/prod guard COMPLETE.**
+- **Workflow**: commit AND push after every completed section. **Work is on `main` of the user's
+  fork** (freedomisntfree92i-arch) per user instruction — no feature branch.
 - **Last updated**: 2026-07-19
+
+## CORS allowlist hardening (§8.2) — done 2026-07-19
+- Dev CORS no longer reflects arbitrary Origin with credentials — explicit localhost/Capacitor
+  allowlist; `ALLOWED_ORIGINS` now whitespace-stripped. Added fail-closed guard: **DEBUG refused in
+  production** (Werkzeug-debugger RCE / no HSTS-CSP / permissive CORS).
+- Tests: `tests/backend/test_cors_policy.py` (3). Suite: **845 passed / 124 failed / 71 / 17** —
+  no regression (proven: 5 pre-existing tests flipped fail→pass, 0 pass→fail).
 
 ## CSV formula-injection protection (§8.5/§22.1) — done 2026-07-19
 - Added `sanitize_csv_cell()` + `SafeCsvWriter` (quotes cells starting with = + - @ / tab / CR);

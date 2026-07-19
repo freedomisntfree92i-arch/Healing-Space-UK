@@ -325,6 +325,14 @@ if os.getenv('TESTING') == '1' and (_PRODUCTION_ENV or not DEBUG):
         "CSRF validation. Unset TESTING for any real deployment."
     )
 
+# SEC (§4.2/§8.2/§9): DEBUG in production enables the Werkzeug debugger (remote code execution),
+# disables HSTS/CSP, and permits reflected-origin CORS. Refuse to start.
+if DEBUG and _PRODUCTION_ENV:
+    raise ValueError(
+        "DEBUG must not be enabled in a production environment (Werkzeug debugger RCE, no "
+        "HSTS/CSP, permissive CORS). Unset DEBUG for any production deployment."
+    )
+
 app.config['SECRET_KEY'] = SECRET_KEY
 app.config['SESSION_COOKIE_SECURE'] = not os.getenv('DEBUG', '').lower() in ('1', 'true', 'yes')  # HTTPS in production
 app.config['SESSION_COOKIE_HTTPONLY'] = True  # Prevent JavaScript access
@@ -2081,13 +2089,22 @@ def summarize_relaxation_techniques(username, limit=3):
 # Note: Flask app already initialized at top of file (line 58)
 # Restrict CORS origins in production for security
 # In DEBUG mode, allow all origins for local development
-ALLOWED_ORIGINS = os.environ.get('ALLOWED_ORIGINS', '').split(',') if os.environ.get('ALLOWED_ORIGINS') else None
+# Parse the allowlist, stripping whitespace and dropping empties (SEC §8.2).
+ALLOWED_ORIGINS = [o.strip() for o in os.environ.get('ALLOWED_ORIGINS', '').split(',') if o.strip()] or None
 
+# SEC (§8.2): never reflect an arbitrary Origin while allowing credentials. Even in local dev we
+# use an EXPLICIT allowlist rather than the previous "reflect any origin with credentials" default.
 if DEBUG and not ALLOWED_ORIGINS:
-    # Development mode: allow all origins
-    CORS(app, supports_credentials=True)
+    # Local development: restrict credentialed CORS to localhost + the Capacitor mobile origin.
+    # Develop from another host by setting ALLOWED_ORIGINS explicitly.
+    dev_origins = [
+        'http://localhost:5000', 'http://127.0.0.1:5000',
+        'http://localhost:3000', 'http://127.0.0.1:3000',
+        'capacitor://localhost', 'ionic://localhost',
+    ]
+    CORS(app, origins=dev_origins, supports_credentials=True)
 else:
-    # Production mode: restrict to specific origins
+    # Production: restrict to an explicit allowlist (from env, or safe defaults).
     production_origins = ALLOWED_ORIGINS or [
         'https://healing-space.org.uk',
         'https://www.healing-space.org.uk',
