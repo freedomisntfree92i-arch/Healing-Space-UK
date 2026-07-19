@@ -2165,6 +2165,37 @@ def handle_exception(e, context: str = 'unknown'):
         'code': 'INTERNAL_ERROR'
     }), 500
 
+# ==================== CSV EXPORT SAFETY (formula-injection) ====================
+def sanitize_csv_cell(value):
+    """Neutralise CSV/Excel/Sheets formula injection (spec §8.5/§22.1).
+
+    A cell beginning with = + - @ (or a leading tab/CR) can be interpreted as a formula
+    when the file is opened in a spreadsheet, enabling data exfiltration / command exec.
+    Prefix such values with a single quote so they render as literal text.
+    """
+    if value is None:
+        return ''
+    s = str(value)
+    if s[:1] in ('=', '+', '-', '@', '\t', '\r'):
+        return "'" + s
+    return s
+
+
+class SafeCsvWriter:
+    """Drop-in wrapper around csv.writer that sanitises every cell (formula injection)."""
+
+    def __init__(self, fileobj, **kwargs):
+        import csv as _csv
+        self._writer = _csv.writer(fileobj, **kwargs)
+
+    def writerow(self, row):
+        self._writer.writerow([sanitize_csv_cell(c) for c in row])
+
+    def writerows(self, rows):
+        for row in rows:
+            self.writerow(row)
+
+
 # ==================== ENGAGEMENT & ACHIEVEMENT HELPERS ====================
 
 def _check_mood_streak(username, cur, days=7):
@@ -9999,7 +10030,7 @@ def export_chat_history():
         elif export_format == 'csv':
             # CSV export
             output = io.StringIO()
-            writer = csv.writer(output)
+            writer = SafeCsvWriter(output)  # sanitises cells against formula injection
             writer.writerow(['Sender', 'Message', 'Timestamp'])
             writer.writerows(history)
             
@@ -13289,7 +13320,7 @@ def export_csv():
         cur = get_wrapped_cursor(conn)
         
         output = io.StringIO()
-        writer = csv.writer(output)
+        writer = SafeCsvWriter(output)  # sanitises cells against formula injection
         
         # Profile
         writer.writerow(["USER PROFILE"])

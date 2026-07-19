@@ -7,9 +7,14 @@
 - **Branch**: `security/nhs-grade-remediation` — pushed to `fork` remote
   (`freedomisntfree92i-arch/Healing-Space-UK`; `origin`=shadowWolf88 upstream, not pushable).
 - **Latest commit**: PRIV-001 training-export disable (SEC-001=`0136d08`, Phase Zero=`c08e727`).
-- **Current phase**: **§9 security headers (partial) COMPLETE. Continuing per "carry on".**
+- **Current phase**: **CSV formula-injection protection COMPLETE. Continuing per "carry on".**
 - **Workflow**: commit AND push after every completed section.
 - **Last updated**: 2026-07-19
+
+## CSV formula-injection protection (§8.5/§22.1) — done 2026-07-19
+- Added `sanitize_csv_cell()` + `SafeCsvWriter` (quotes cells starting with = + - @ / tab / CR);
+  swapped both CSV export sites (chat export, full data export) to use it.
+- Tests: `tests/backend/test_csv_injection.py` (10). Suite: **837 passed / 129 / 71 / 17** — no regression.
 
 ## §9 security headers (partial) — done 2026-07-19
 - Added `Cross-Origin-Opener-Policy: same-origin`; header presence tests
